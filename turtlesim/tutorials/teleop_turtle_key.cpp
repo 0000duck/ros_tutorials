@@ -1,7 +1,9 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <signal.h>
+#ifndef WIN32
 #include <termios.h>
+#endif
 #include <stdio.h>
 
 #define KEYCODE_R 0x43 
@@ -16,9 +18,7 @@ public:
   TeleopTurtle();
   void keyLoop();
 
-private:
-
-  
+private:  
   ros::NodeHandle nh_;
   double linear_, angular_, l_scale_, a_scale_;
   ros::Publisher twist_pub_;
@@ -37,13 +37,23 @@ TeleopTurtle::TeleopTurtle():
   twist_pub_ = nh_.advertise<geometry_msgs::Twist>("turtle1/cmd_vel", 1);
 }
 
+
+#ifdef WIN32
+HANDLE kStdin = 0;
+DWORD saveOldMode;
+#else
 int kfd = 0;
 struct termios cooked, raw;
+#endif
 
 void quit(int sig)
 {
   (void)sig;
+#ifdef WIN32
+  SetConsoleMode(kStdin, saveOldMode);
+#else
   tcsetattr(kfd, TCSANOW, &cooked);
+#endif 
   ros::shutdown();
   exit(0);
 }
@@ -54,7 +64,9 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "teleop_turtle");
   TeleopTurtle teleop_turtle;
 
+#ifndef WIN32
   signal(SIGINT,quit);
+#endif
 
   teleop_turtle.keyLoop();
   
@@ -65,9 +77,19 @@ int main(int argc, char** argv)
 void TeleopTurtle::keyLoop()
 {
   char c;
-  bool dirty=false;
+  bool dirty = false;
+#ifdef WIN32
+  INPUT_RECORD inRecord[128]; 
+  DWORD numRead = 0;
+#endif
 
-
+#ifdef WIN32
+  kStdin = GetStdHandle(STD_INPUT_HANDLE); 
+  if (kStdin == INVALID_HANDLE_VALUE) exit(0);
+  if (!GetConsoleMode(kStdin, &saveOldMode) ) exit(0);
+  DWORD fdwMode = ENABLE_WINDOW_INPUT | ENABLE_PROCESSED_INPUT; 
+  if (!SetConsoleMode(kStdin, fdwMode) ) exit(0);
+#else
   // get the console in raw mode                                                              
   tcgetattr(kfd, &cooked);
   memcpy(&raw, &cooked, sizeof(struct termios));
@@ -76,21 +98,35 @@ void TeleopTurtle::keyLoop()
   raw.c_cc[VEOL] = 1;
   raw.c_cc[VEOF] = 2;
   tcsetattr(kfd, TCSANOW, &raw);
+#endif
 
   puts("Reading from keyboard");
   puts("---------------------------");
   puts("Use arrow keys to move the turtle.");
 
-
   for(;;)
   {
-    // get the next event from the keyboard  
+    // get the next event from the keyboard
+#ifdef WIN32
+    if(!ReadConsoleInput(kStdin, inRecord, 128, &numRead))
+	{
+	  perror("ReadConsoleInput():");
+	  exit(-1);
+	}
+	
+	for (int i = 0; i < numRead; i++)
+	{
+	  if (inRecord[i].EventType == KEY_EVENT && 
+	      inRecord[i].Event.KeyEvent.bKeyDown == false)
+	  {
+		  c = inRecord[i].Event.KeyEvent.uChar.AsciiChar;
+#else
     if(read(kfd, &c, 1) < 0)
     {
       perror("read():");
       exit(-1);
     }
-
+#endif
     linear_=angular_=0;
     ROS_DEBUG("value: 0x%02X\n", c);
   
@@ -127,6 +163,10 @@ void TeleopTurtle::keyLoop()
       twist_pub_.publish(twist);    
       dirty=false;
     }
+#ifdef WIN32
+	  }
+	}
+#endif
   }
 
 
