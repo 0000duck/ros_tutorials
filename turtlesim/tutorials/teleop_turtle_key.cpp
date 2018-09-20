@@ -6,11 +6,19 @@
 #endif
 #include <stdio.h>
 
+#ifdef WIN32
+#define KEYCODE_R VK_RIGHT 
+#define KEYCODE_L VK_LEFT
+#define KEYCODE_U VK_UP
+#define KEYCODE_D VK_DOWN
+#define KEYCODE_Q 0x51
+#else
 #define KEYCODE_R 0x43 
 #define KEYCODE_L 0x44
 #define KEYCODE_U 0x41
 #define KEYCODE_D 0x42
 #define KEYCODE_Q 0x71
+#endif
 
 class TeleopTurtle
 {
@@ -119,7 +127,8 @@ void TeleopTurtle::keyLoop()
 	  if (inRecord[i].EventType == KEY_EVENT && 
 	      inRecord[i].Event.KeyEvent.bKeyDown == false)
 	  {
-		  c = inRecord[i].Event.KeyEvent.uChar.AsciiChar;
+		  c = inRecord[i].Event.KeyEvent.wVirtualKeyCode;
+		  //c = inRecord[i].Event.KeyEvent.uChar.AsciiChar;
 #else
     if(read(kfd, &c, 1) < 0)
     {
