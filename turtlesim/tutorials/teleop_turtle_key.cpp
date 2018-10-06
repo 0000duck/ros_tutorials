@@ -1,12 +1,14 @@
 #include <ros/ros.h>
 #include <geometry_msgs/Twist.h>
 #include <signal.h>
-#ifndef WIN32
+#ifndef _WINDOWS
 #include <termios.h>
+#else
+#include <windows.h>
 #endif
 #include <stdio.h>
 
-#ifdef WIN32
+#ifdef _WINDOWS
 #define KEYCODE_R VK_RIGHT 
 #define KEYCODE_L VK_LEFT
 #define KEYCODE_U VK_UP
@@ -46,7 +48,7 @@ TeleopTurtle::TeleopTurtle():
 }
 
 
-#ifdef WIN32
+#ifdef _WINDOWS
 HANDLE kStdin = 0;
 DWORD saveOldMode;
 #else
@@ -57,7 +59,7 @@ struct termios cooked, raw;
 void quit(int sig)
 {
   (void)sig;
-#ifdef WIN32
+#ifdef _WINDOWS
   SetConsoleMode(kStdin, saveOldMode);
 #else
   tcsetattr(kfd, TCSANOW, &cooked);
@@ -72,7 +74,7 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "teleop_turtle");
   TeleopTurtle teleop_turtle;
 
-#ifndef WIN32
+#ifndef _WINDOWS
   signal(SIGINT,quit);
 #endif
 
@@ -86,12 +88,12 @@ void TeleopTurtle::keyLoop()
 {
   char c;
   bool dirty = false;
-#ifdef WIN32
+#ifdef _WINDOWS
   INPUT_RECORD inRecord[128]; 
   DWORD numRead = 0;
 #endif
 
-#ifdef WIN32
+#ifdef _WINDOWS
   kStdin = GetStdHandle(STD_INPUT_HANDLE); 
   if (kStdin == INVALID_HANDLE_VALUE) exit(0);
   if (!GetConsoleMode(kStdin, &saveOldMode) ) exit(0);
@@ -115,7 +117,7 @@ void TeleopTurtle::keyLoop()
   for(;;)
   {
     // get the next event from the keyboard
-#ifdef WIN32
+#ifdef _WINDOWS
     if(!ReadConsoleInput(kStdin, inRecord, 128, &numRead))
 	{
 	  perror("ReadConsoleInput():");
@@ -172,7 +174,7 @@ void TeleopTurtle::keyLoop()
       twist_pub_.publish(twist);    
       dirty=false;
     }
-#ifdef WIN32
+#ifdef _WINDOWS
 	  }
 	}
 #endif
